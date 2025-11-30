@@ -1,0 +1,3 @@
+[2025-11-29 09:52:05] client=127.0.0.1 file=F.txt server=127.0.0.1:9002 word="travel" occurrences=11
+[2025-11-29 09:54:53] client=127.0.0.1 file=B.txt server=127.0.0.1:9000 word="dog" occurrences=0
+[2025-11-29 09:55:03] client=127.0.0.1 file=C.txt server=127.0.0.1:9001 word="AI" occurrences=0

@@ -1,0 +1,4 @@
+This is a sample file for testing the distributed system.
+It contains a few words about Python, sockets and networking.
+Python is great for network programming and distributed systems.
+socket socket socket
