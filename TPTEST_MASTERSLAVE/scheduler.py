@@ -19,13 +19,15 @@ HISTORY_FILE = os.path.join(os.path.dirname(__file__), 'history.txt')
 # ROUTING_TABLE maps filename -> (server_ip, server_port)
 # Modify this mapping to reflect where your slaves run and which files they host.
 ROUTING_TABLE = {
-    'A.txt': ('127.0.0.1', 9000),
-    'B.txt': ('127.0.0.1', 9000),
-    'C.txt': ('127.0.0.1', 9001),
-    'D.txt': ('127.0.0.1', 9001),
-    'E.txt': ('127.0.0.1', 9001),
-    'F.txt': ('127.0.0.1', 9002),
+    'A.txt': ('127.0.0.1', 9000, 900),
+    'B.txt': ('127.0.0.1', 9000, 700),
+    'C.txt': ('127.0.0.1', 9001, 500),
+    'D.txt': ('127.0.0.1', 9001, 300),
+    'E.txt': ('127.0.0.1', 9001, 200),
+    'F.txt': ('127.0.0.1', 9002, 100),
 }
+
+ROUTES = [["A.txt", "127.0.0.1", 9000, 900], ["B.txt", "127.0.0.1", 9000, 900], ["C.txt", "127.0.0.1", 9001, 900], ["D.txt", "127.0.0.1", 9001, 900], ["E.txt", "127.0.0.1", 9001, 900], ["F.txt", "127.0.0.1", 9002, 900]]
 
 # Words the scheduler can choose from when assigning a search word.
 WORD_POOL = ['AI', 'animal', 'vacation', 'dog', 'dogs', 'star', 'stars', 'recipe', 'step', 'again', 'music', 'travel', 'can', 'and']
@@ -76,7 +78,7 @@ def log_history(client_ip, filename, server_addr, word, occurrences):
     print('Logged:', line.strip())
 
 
-def handle_client(conn, addr):
+def handle_client(conn, addr, s_index, l_index):
     """Handle a scheduler <-> client session.
 
     Protocol (text lines):
@@ -92,35 +94,45 @@ def handle_client(conn, addr):
     """
     print('Client connected from', addr)
 
+    
+    msg = recv_msg(conn)
+    if msg == "L":
+        target = ROUTES[l_index]
+        l_index = l_index+1
+    else:
+        target = ROUTES[s_index]
+        s_index = s_index-1
+    
+
     # Send list of available files
-    files = '|'.join(sorted(ROUTING_TABLE.keys()))
-    send_msg(conn, f'FILES:{files}')
+    # files = '|'.join(sorted(ROUTING_TABLE.keys()))
+    # send_msg(conn, f'FILES:{files}')
 
     # Receive the client's choice (optionally with a preferred word)
-    msg = recv_msg(conn)
-    if not msg:
-        conn.close()
-        return
-    if not msg.startswith('CHOICE:'):
-        send_msg(conn, 'ERROR:BAD_REQUEST')
-        conn.close()
-        return
-    parts = msg.split(':')
-    if len(parts) < 2:
-        send_msg(conn, 'ERROR:BAD_REQUEST')
-        conn.close()
-        return
-    filename = parts[1]
-    client_word = parts[2] if len(parts) >= 3 else None
-    if filename not in ROUTING_TABLE:
-        send_msg(conn, 'ERROR:UNKNOWN_FILE')
-        conn.close()
-        return
+    # msg = recv_msg(conn)
+    # if not msg:
+    #     conn.close()
+    #     return
+    # if not msg.startswith('CHOICE:'):
+    #     send_msg(conn, 'ERROR:BAD_REQUEST')
+    #     conn.close()
+    #     return
+    # parts = msg.split(':')
+    # if len(parts) < 2:
+    #     send_msg(conn, 'ERROR:BAD_REQUEST')
+    #     conn.close()
+    #     return
+    # filename = parts[1]
+    # client_word = parts[2] if len(parts) >= 3 else None
+    # if filename not in ROUTING_TABLE:
+    #     send_msg(conn, 'ERROR:UNKNOWN_FILE')
+    #     conn.close()
+    #     return
 
-    server_ip, server_port = ROUTING_TABLE[filename]
+    server_ip, server_port = target[1], target[2]
 
     # Choose word if client didn't provide one
-    word = client_word if client_word else random.choice(WORD_POOL)
+    word = random.choice(WORD_POOL)
 
     # Tell the client which server to contact and which word to search for
     send_msg(conn, f'ASSIGN:{server_ip}:{server_port}:{word}')
@@ -142,14 +154,13 @@ def handle_client(conn, addr):
 
     send_msg(conn, 'ERROR:BAD_RESULT')
     conn.close()
+    return l_index, s_index
 
 
 def run():
-    """Start the scheduler socket and accept client connections.
 
-    This loop spawns a thread per client. For a production system you might
-    prefer a thread pool or async IO.
-    """
+    l = 0
+    s = 5
     print('Scheduler starting on', HOST, PORT)
     os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
     open(HISTORY_FILE, 'a', encoding='utf-8').close()
@@ -157,10 +168,8 @@ def run():
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
         s.listen(5)  # backlog; increase if you expect many simultaneous connect attempts
-        while True:
-            conn, addr = s.accept()
-            t = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
-            t.start()
+        conn, addr = s.accept()
+        l, s = handle_client(conn, addr, l, s)
 
 
 if __name__ == '__main__':

@@ -67,7 +67,9 @@ def main():
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 		s.connect((SCHED_HOST, SCHED_PORT))
 
-		# 1) Get file list from scheduler
+		size = 'S'
+		send_msg(s, size)
+
 		msg = recv_msg(s)
 		if not msg or not msg.startswith('FILES:'):
 			print('Bad response from scheduler:', msg)
